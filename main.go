@@ -30,7 +30,7 @@ nouns([], []).
 	}
 
 	// 与えられた文を形態素解析して名詞だけ取り出す
-	sols, err := i.Query("analyze('すもももももももものうち', normal, Tokens), nouns(Tokens, Nouns).")
+	sols, err := i.Query("analyze(?, normal, Tokens), nouns(Tokens, Nouns).", "すもももももももものうち")
 	if err != nil {
 		panic(err)
 	}
@@ -38,19 +38,19 @@ nouns([], []).
 	// Prologの変数と同名のフィールドを持つ構造体で受ける
 	var s struct {
 		Tokens []term.Interface
-		Nouns  []term.Interface
+		Nouns  []string
 	}
 	for sols.Next() {
 		if err := sols.Scan(&s); err != nil {
 			panic(err)
 		}
 		fmt.Printf("Tokens: %+v\n", s.Tokens)
-		fmt.Printf("Nouns: %+v\n", s.Nouns)
+		fmt.Printf("Nouns: %s\n", s.Nouns)
 	}
 }
 
 // analyze/3の定義
-func Analyze(input, mode, tokens term.Interface, k func(env *term.Env) *nondet.Promise, env *term.Env) *nondet.Promise {
+func Analyze(input, mode, tokens term.Interface, k func(*term.Env) *nondet.Promise, env *term.Env) *nondet.Promise {
 	// 最初の引数 input が（変数かもしれないので、それをたどっていった先で）アトム（文字列みたいなもの）であるか確認
 	i, ok := env.Resolve(input).(term.Atom)
 	if !ok {
