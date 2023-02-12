@@ -12,7 +12,9 @@ var (
 	atomNormal   = engine.NewAtom("normal")
 	atomSearch   = engine.NewAtom("search")
 	atomExtended = engine.NewAtom("extended")
+	atomCompound = engine.NewAtom("compound")
 	atomToken    = engine.NewAtom("token")
+	atomInteger  = engine.NewAtom("integer")
 )
 
 // Analyze は形態素解析を行う
@@ -46,6 +48,51 @@ func Analyze(vm *engine.VM, input, mode, tokens engine.Term, k engine.Cont, env 
 		}
 	default:
 		return engine.Error(engine.TypeError(atomAtom, mode, env))
+	}
+
+	// 出力用の引数 tokens が出力にマッチしうるかチェック
+	iter := engine.ListIterator{List: tokens, Env: env, AllowPartial: true}
+	for iter.Next() {
+		switch token := env.Resolve(iter.Current()).(type) {
+		case engine.Variable:
+			break
+		case engine.Compound:
+			if token.Functor() != atomToken || token.Arity() != 3 {
+				return engine.Error(engine.DomainError(atomToken, token, env))
+			}
+
+			switch id := env.Resolve(token.Arg(0)).(type) {
+			case engine.Variable, engine.Integer:
+				break
+			default:
+				return engine.Error(engine.TypeError(atomInteger, id, env))
+			}
+
+			switch surface := env.Resolve(token.Arg(1)).(type) {
+			case engine.Variable, engine.Atom:
+				break
+			default:
+				return engine.Error(engine.TypeError(atomAtom, surface, env))
+			}
+
+			iter := engine.ListIterator{List: token.Arg(2), Env: env, AllowPartial: true}
+			for iter.Next() {
+				switch feature := env.Resolve(iter.Current()).(type) {
+				case engine.Variable, engine.Atom:
+					break
+				default:
+					return engine.Error(engine.TypeError(atomAtom, feature, env))
+				}
+			}
+			if err := iter.Err(); err != nil {
+				return engine.Error(err)
+			}
+		default:
+			return engine.Error(engine.TypeError(atomCompound, token, env))
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return engine.Error(err)
 	}
 
 	// 形態素解析器を準備
